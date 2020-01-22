@@ -1,0 +1,85 @@
+version: "2.3"
+
+volumes:
+  coder-home:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/holodev/holo-code-server/coder-home-volume
+  # holodev:
+  #   driver: local-persist
+  #   driver_opts:
+  #     mountpoint: /srv/holodev/holodev-volume
+
+networks:
+  haven:
+    external: true
+
+services:
+  holodev:
+    restart: unless-stopped
+    build:
+      context: ./
+    image: dcomposed/holo-code-server:v2
+    environment:
+      - PASSWORD=1234321!
+    volumes:
+      # coder user, nix-shell user and nginx user should all be 1000
+      # # so that ./ can be owned by the host system user 1000
+      - coder-home:/home/coder/
+      - ./conf.d/custom.conf:/etc/nginx/conf.d/default.conf
+    expose:
+      - 3000
+    ports:
+      - 8888:8888
+      - 9000:9000
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=haven #docker network name
+      - traefik.holoapp.frontend.rule=Host:${APP_HOST} #,more.comma.sep
+      - traefik.holoapp.port=3000 #i
+      - "traefik.holodev.frontend.rule=Host:${CODE_HOST}"
+      - "traefik.holodev.port=8080" #3000 for theia #8080 for code-server
+      - "traefik.holodev.auth.basic=${AUTH_STRING}"
+    networks:
+      - haven
+  # gitea:
+  #   image: gitea/gitea:latest
+  #   container_name: holodev-gitea
+  #   environment:
+  #     - USER_UID=1000
+  #     - USER_GID=1000
+  #     - ROOT_URL=https://git.onezoom.in
+  #     - SSH_DOMAIN=git.onezoom.in
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./gitea-volume:/data
+  #   ports:
+  #     #   - "3000:3000"
+  #     - "4422:22"
+  #   networks:
+  #     # - appnet
+  #     - haven
+  #   # extra_hosts:
+  #   #   - "drone.1zm.in:172.21.22.23"
+  #   labels:
+  #     - traefik.enable=true
+  #     - traefik.frontend.rule=Host:git.onezoom.in #,more.comma.sep
+  #     - traefik.port=3000 #internal port
+  #     - traefik.docker.network=haven #docker network name
+  # holodev:
+  #   image: theiaide/theia
+  #   container_name: holodev
+  #   restart: unless-stopped
+  #   volumes:
+  #     - coder-home:/home/coder/
+  #     - holodev:/home/project
+  #     # - code-server-data:/home/coder/.local/share/code-server # /home/project
+  #     # add ssh keys securely https://code-maven.com/per-project-ssh-public-keys-git
+  #   networks:
+  #     - haven
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.frontend.rule=Host:holodev.onezoom.in"
+  #     - "traefik.port=3000" #3000 for theia #8080 for code-server
+  #     - "traefik.docker.network=haven"
+  #     - "traefik.frontend.auth.basic=${AUTH_STRING}"
